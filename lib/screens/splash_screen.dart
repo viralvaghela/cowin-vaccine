@@ -53,8 +53,11 @@ class _SplashScreenState extends State<SplashScreen> {
                       padding: EdgeInsets.only(top: 10.0),
                     ),
                     Text(
-                        "Awesome Wallpapers",
-                        style: TextStyle(fontSize: 20,color: Colors.white)
+                      "COVID VACCINE Tracker".toUpperCase(),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
                     )
                   ],
                 ),

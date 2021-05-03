@@ -1,28 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:pin_code_fields/pin_code_fields.dart';
 
-class HomeScreen extends StatelessWidget {
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: PinCodeVerificationScreen(
-          "+8801376221100"), // a random number, please don't call xD
-    );
-  }
-}
+import 'after_login_screen.dart';
 
 class PinCodeVerificationScreen extends StatefulWidget {
   final String phoneNumber;
+  final String transcID;
 
-  PinCodeVerificationScreen(this.phoneNumber);
+  PinCodeVerificationScreen(this.phoneNumber, this.transcID);
 
   @override
   _PinCodeVerificationScreenState createState() =>
@@ -33,7 +24,6 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
   var onTapRecognizer;
 
   TextEditingController textEditingController = TextEditingController();
-  // ..text = "123456";
 
   StreamController<ErrorAnimationType> errorController;
 
@@ -41,6 +31,8 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
   String currentText = "";
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
   final formKey = GlobalKey<FormState>();
+  var otp = "";
+  String errorMessage = "";
 
   @override
   void initState() {
@@ -74,7 +66,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
             children: <Widget>[
               SizedBox(height: 30),
               Container(
-                height: MediaQuery.of(context).size.height / 3,
+                height: MediaQuery.of(context).size.height / 5,
                 // child:Text("ad"),
               ),
               SizedBox(height: 8),
@@ -88,7 +80,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
               ),
               Padding(
                 padding:
-                const EdgeInsets.symmetric(horizontal: 30.0, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 30.0, vertical: 8),
                 child: RichText(
                   text: TextSpan(
                       text: "Enter the code sent to ",
@@ -135,7 +127,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
                         fieldHeight: 60,
                         fieldWidth: 50,
                         activeFillColor:
-                        hasError ? Colors.orange : Colors.white,
+                            hasError ? Colors.orange : Colors.white,
                       ),
                       cursorColor: Colors.black,
                       animationDuration: Duration(milliseconds: 300),
@@ -153,7 +145,9 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
                         )
                       ],
                       onCompleted: (v) {
-                        print("Completed");
+                        otp = v;
+                        setState(() {});
+                        // print("Completed" + v);
                       },
                       // onTap: () {
                       //   print("Pressed");
@@ -175,7 +169,7 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 30.0),
                 child: Text(
-                  hasError ? "*Please fill up all the cells properly" : "",
+                  "*Please fill up all the cells properly",
                   style: TextStyle(
                       color: Colors.red,
                       fontSize: 12,
@@ -205,37 +199,67 @@ class _PinCodeVerificationScreenState extends State<PinCodeVerificationScreen> {
               ),
               Container(
                 margin:
-                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 30),
+                    const EdgeInsets.symmetric(vertical: 16.0, horizontal: 30),
                 child: ButtonTheme(
                   height: 50,
                   child: FlatButton(
-                    onPressed: () {
+                    onPressed: () async {
                       formKey.currentState.validate();
                       // conditions for validating
-                      if (currentText.length != 6 || currentText != "towtow") {
+                      if (currentText.length != 6) {
                         errorController.add(ErrorAnimationType
                             .shake); // Triggering error shake animation
                         setState(() {
                           hasError = true;
                         });
                       } else {
-                        setState(() {
-                          hasError = false;
-                          scaffoldKey.currentState.showSnackBar(SnackBar(
-                            content: Text("Aye!!"),
-                            duration: Duration(seconds: 2),
-                          ));
+                        var bytes = utf8.encode(otp); // data being hashed
+                        var digest = sha256.convert(bytes);
+                        // print("Digest as hex string: $digest");
+
+                        var bodyData = jsonEncode(<String, String>{
+                          "otp": "$digest",
+                          "txnId": "${widget.transcID}"
                         });
+                        print(bodyData);
+
+                        var res = await http.post(
+                            Uri.parse(
+                                "https://cdn-api.co-vin.in/api/v2/auth/public/confirmOTP"),
+                            headers: <String, String>{
+                              'accept': 'application/json',
+                              'Content-Type': 'application/json'
+                            },
+                            body: bodyData);
+                        // print(res.body);
+                        if (res.body.toString() == "Unauthenticated access!") {
+                          print("ERRRRee ");
+
+                          setState(() {
+                            hasError = true;
+                          });
+                          hasError ? errorMessage = "*Wrong OTP" : "";
+                          setState(() {
+
+                          });
+                        } else {
+                          print(bodyData);
+                          var jsonData = await json.decode(res.body);
+                          print(jsonData);
+
+                          Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => AfterLogin()));
+                        }
                       }
                     },
                     child: Center(
                         child: Text(
-                          "VERIFY".toUpperCase(),
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold),
-                        )),
+                      "VERIFY".toUpperCase(),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
+                    )),
                   ),
                 ),
                 decoration: BoxDecoration(
