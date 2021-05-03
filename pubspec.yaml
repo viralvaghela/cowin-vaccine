@@ -23,6 +23,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  pin_code_fields: ^7.0.0
+  http:
 
 
   # The following adds the Cupertino Icons font to your application.
